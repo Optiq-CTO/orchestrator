@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package analyzer;
+
+option go_package = "github.com/Optiq-CTO/orchestrator/api/proto/external/analyzer";
+
+service AnalyzerService {
+  rpc AnalyzeContent(AnalyzeContentRequest) returns (AnalyzeContentResponse) {}
+}
+
+message AnalyzeContentRequest {
+  oneof content {
+    string text = 1;
+    string image_url = 2;
+    string video_url = 3;
+    string audio_url = 4;
+  }
+}
+
+message AnalyzeContentResponse {
+  string summary = 1;
+  repeated string tags = 2;
+  string sentiment = 3;
+  float risk_score = 4; // 0.0 to 1.0 (Safe to Unsafe)
+  string raw_response = 5;
+}

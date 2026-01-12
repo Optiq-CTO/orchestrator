@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package creator;
+
+option go_package = "github.com/Optiq-CTO/orchestrator/api/proto/external/creator";
+
+service CreatorService {
+  rpc GenerateContent(GenerateRequest) returns (GenerateResponse) {}
+  rpc RemixContent(RemixRequest) returns (GenerateResponse) {}
+}
+
+message GenerateRequest {
+  string topic = 1;
+  string platform = 2; // "twitter", "linkedin", "instagram"
+  string tone = 3;     // "professional", "viral", "casual"
+}
+
+message RemixRequest {
+  string original_content = 1;
+  string source_platform = 2;
+  string target_platform = 3;
+  string tone = 4;
+}
+
+message GenerateResponse {
+  string content = 1;
+  repeated string image_prompts = 2; // Descriptions for image generation
+}

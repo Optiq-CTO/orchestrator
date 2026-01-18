@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package aicontext;
+
+option go_package = "github.com/Optiq-CTO/aicontext/api/proto";
+
+service AIContextService {
+  // GetUserContext retrieves the current AI context for a specific user platform/account
+  rpc GetUserContext(GetUserContextRequest) returns (UserContext);
+  
+  // UpdateUserContext adds a new interaction and triggers context compression if needed
+  rpc UpdateUserContext(UpdateUserContextRequest) returns (UpdateUserContextResponse);
+}
+
+message User {
+  string platform = 1; // e.g., "facebook"
+  string user_id = 2;  // e.g., Page ID
+}
+
+message GetUserContextRequest {
+  User user = 1;
+}
+
+message UserContext {
+  User user = 1;
+  string summary = 2;              // AI-generated summary of the current state
+  map<string, string> key_facts = 3; // Permanent knowledge for the user
+  repeated Interaction history = 4; // Last few interactions
+  string last_post_id = 5;
+}
+
+message Interaction {
+  string timestamp = 1;         // ISO8601
+  string post_id = 2;           // Platform-specific ID
+  string direction = 3;         // "inbound" or "outbound"
+  string content = 4;           // Text content
+  string analysis_summary = 5;  // Summary of analysis from analyzer service
+}
+
+message UpdateUserContextRequest {
+  User user = 1;
+  Interaction new_interaction = 2;
+}
+
+message UpdateUserContextResponse {
+  bool success = 1;
+  string message = 2;
+}

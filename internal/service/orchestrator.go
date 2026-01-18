@@ -6,6 +6,7 @@ import (
 	"log"
 
 	pb "github.com/Optiq-CTO/orchestrator/api/proto"
+	aicontext "github.com/Optiq-CTO/orchestrator/api/proto/external/aicontext"
 	creator "github.com/Optiq-CTO/orchestrator/api/proto/external/creator"
 	fetcher "github.com/Optiq-CTO/orchestrator/api/proto/external/fetcher"
 	publisher "github.com/Optiq-CTO/orchestrator/api/proto/external/publisher"
@@ -18,13 +19,15 @@ type OrchestratorService struct {
 	fetcher   fetcher.FetcherServiceClient
 	creator   creator.CreatorServiceClient
 	publisher publisher.PublisherServiceClient
+	aicontext aicontext.AIContextServiceClient
 }
 
-func NewOrchestratorService(f fetcher.FetcherServiceClient, c creator.CreatorServiceClient, p publisher.PublisherServiceClient) *OrchestratorService {
+func NewOrchestratorService(f fetcher.FetcherServiceClient, c creator.CreatorServiceClient, p publisher.PublisherServiceClient, ac aicontext.AIContextServiceClient) *OrchestratorService {
 	return &OrchestratorService{
 		fetcher:   f,
 		creator:   c,
 		publisher: p,
+		aicontext: ac,
 	}
 }
 
@@ -148,7 +151,12 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 	latestPost := fetchRes.Items[0]
 	log.Printf("[Orchestrator] Processing latest post: %s", latestPost.ContentText[:min(50, len(latestPost.ContentText))])
 
-	// 2. Analyze the post (already done by fetcher calling analyzer)
+	// 2. Get AI Context
+	log.Printf("[Orchestrator] Step 2: Fetching AI context for page %s", pageID)
+	ctxRes, _ := s.aicontext.GetUserContext(ctx, &aicontext.GetUserContextRequest{
+		User: &aicontext.User{Platform: "facebook", UserId: pageID},
+	})
+
 	var analysisContext string
 	if latestPost.Analysis != nil {
 		analysisContext = fmt.Sprintf("Tags: %v, Sentiment: %s",
@@ -156,10 +164,15 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 			latestPost.Analysis.Sentiment)
 	}
 
+	prompt := fmt.Sprintf("Create a friendly response to this post: '%s'. Analysis: %s", latestPost.ContentText, analysisContext)
+	if ctxRes != nil && ctxRes.Summary != "" {
+		prompt = fmt.Sprintf("Last Context: %s. %s", ctxRes.Summary, prompt)
+	}
+
 	// 3. Generate contextual response
-	log.Printf("[Orchestrator] Step 2: Generating response based on analysis")
+	log.Printf("[Orchestrator] Step 3: Generating response based on analysis and context")
 	generateRes, err := s.creator.GenerateContent(ctx, &creator.GenerateRequest{
-		Topic:    fmt.Sprintf("Create a friendly, engaging comment/reply to this post: '%s'. Analysis: %s", latestPost.ContentText, analysisContext),
+		Topic:    prompt,
 		Platform: "facebook",
 		Tone:     "friendly",
 	})
@@ -168,7 +181,7 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 	}
 
 	// 4. Publish response to Facebook
-	log.Printf("[Orchestrator] Step 3: Publishing response to Facebook")
+	log.Printf("[Orchestrator] Step 4: Publishing response to Facebook")
 	pubRes, err := s.publisher.PublishContent(ctx, &publisher.PublishRequest{
 		Content:  generateRes.Content,
 		Platform: "facebook",
@@ -180,6 +193,18 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 	if err != nil {
 		return nil, fmt.Errorf("publish failed: %w", err)
 	}
+
+	// 5. Update AI Context
+	log.Printf("[Orchestrator] Step 5: Updating AI context with new interaction")
+	s.aicontext.UpdateUserContext(ctx, &aicontext.UpdateUserContextRequest{
+		User: &aicontext.User{Platform: "facebook", UserId: pageID},
+		NewInteraction: &aicontext.Interaction{
+			PostId:          pubRes.PostId,
+			Content:         generateRes.Content,
+			Direction:       "outbound",
+			AnalysisSummary: analysisContext, // Or some other summary
+		},
+	})
 
 	log.Printf("Successfully published echo response: %s", pubRes.PostUrl)
 

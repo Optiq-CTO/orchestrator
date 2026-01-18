@@ -6,6 +6,7 @@ import (
 	"os"
 
 	pb "github.com/Optiq-CTO/orchestrator/api/proto"
+	aicontext "github.com/Optiq-CTO/orchestrator/api/proto/external/aicontext"
 	creator "github.com/Optiq-CTO/orchestrator/api/proto/external/creator"
 	fetcher "github.com/Optiq-CTO/orchestrator/api/proto/external/fetcher"
 	publisher "github.com/Optiq-CTO/orchestrator/api/proto/external/publisher"
@@ -57,6 +58,18 @@ func main() {
 	defer connPub.Close()
 	pubClient := publisher.NewPublisherServiceClient(connPub)
 
+	// Connect to AIContext
+	aiContextHost := os.Getenv("AICONTEXT_HOST")
+	if aiContextHost == "" {
+		aiContextHost = "localhost:50057"
+	}
+	connAIContext, err := grpc.Dial(aiContextHost, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("failed to connect to aicontext: %v", err)
+	}
+	defer connAIContext.Close()
+	aiContextClient := aicontext.NewAIContextServiceClient(connAIContext)
+
 	// Start Orchestrator
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -64,7 +77,7 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	svc := service.NewOrchestratorService(fetcherClient, creatorClient, pubClient)
+	svc := service.NewOrchestratorService(fetcherClient, creatorClient, pubClient, aiContextClient)
 	pb.RegisterOrchestratorServiceServer(s, svc)
 	reflection.Register(s)
 

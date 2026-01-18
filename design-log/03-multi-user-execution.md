@@ -160,14 +160,18 @@ graph TD
 - [ ] Implement sequential execution loop
 
 ### Phase 3: Error Handling & Logging
-- [ ] Add per-user error tracking
-- [ ] Generate execution summary (success/fail counts)
-- [ ] Add structured logging (JSON or table format)
+- [x] Add per-user error tracking
+- [x] Generate execution summary (success/fail counts)
+- [x] Add structured logging (JSON or table format)
 
-### Phase 4: Testing
-- [ ] Test with multiple fake users (mock)
+### Phase 4: Rate Limit Handling
+- [x] Add delay between users in `cmd/batch-runner`
+- [x] Respect Gemini API free tier limits (5-15 RPM)
+
+### Phase 5: Testing
+- [x] Test with multiple fake users (mock)
 - [ ] Test with 2 real Facebook pages
-- [ ] Verify error handling (invalid token)
+- [x] Verify error handling (invalid token)
 
 ## Examples
 

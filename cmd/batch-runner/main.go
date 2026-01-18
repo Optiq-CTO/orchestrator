@@ -71,6 +71,11 @@ func main() {
 
 	log.Println("\n===== Starting Batch Pipeline Execution =====")
 	for i, user := range config.Users {
+		if i > 0 {
+			log.Println("\n[Rate Limit] Waiting 15s between users to respect Gemini API limits...")
+			time.Sleep(15 * time.Second)
+		}
+
 		log.Printf("\n[%d/%d] Processing user: %s (ID: %s)", i+1, len(config.Users), user.Name, user.ID)
 
 		for _, pipeline := range user.Pipelines {

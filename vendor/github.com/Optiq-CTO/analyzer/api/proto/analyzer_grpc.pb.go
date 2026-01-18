@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.12
-// source: api/proto/external/analyzer/analyzer.proto
+// source: api/proto/analyzer.proto
 
 package proto
 
@@ -101,5 +101,5 @@ var AnalyzerService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/external/analyzer/analyzer.proto",
+	Metadata: "api/proto/analyzer.proto",
 }

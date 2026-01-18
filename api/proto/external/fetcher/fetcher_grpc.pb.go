@@ -4,7 +4,7 @@
 // - protoc             v3.21.12
 // source: api/proto/external/fetcher/fetcher.proto
 
-package fetcher
+package proto
 
 import (
 	context "context"

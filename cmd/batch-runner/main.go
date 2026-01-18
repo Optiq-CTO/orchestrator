@@ -47,6 +47,7 @@ type ExecutionResult struct {
 func main() {
 	configPath := flag.String("config", "../../users.yaml", "Path to users.yaml configuration file")
 	orchestratorAddr := flag.String("orchestrator", "localhost:50056", "Orchestrator service address")
+	modelProvider := flag.String("model", "gemini", "AI model provider (gemini or openai)")
 	flag.Parse()
 
 	// 1. Load configuration
@@ -90,7 +91,7 @@ func main() {
 				continue
 			}
 
-			result := executePipeline(client, user, pipeline)
+			result := executePipeline(client, user, pipeline, *modelProvider)
 			results = append(results, result)
 		}
 	}
@@ -113,7 +114,7 @@ func loadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
-func executePipeline(client pb.OrchestratorServiceClient, user User, pipeline Pipeline) ExecutionResult {
+func executePipeline(client pb.OrchestratorServiceClient, user User, pipeline Pipeline, modelProvider string) ExecutionResult {
 	result := ExecutionResult{
 		UserID:   user.ID,
 		UserName: user.Name,
@@ -141,8 +142,9 @@ func executePipeline(client pb.OrchestratorServiceClient, user User, pipeline Pi
 
 	// Execute pipeline
 	res, err := client.RunPipeline(ctx, &pb.PipelineRequest{
-		FlowName: flowName,
-		Params:   params,
+		FlowName:      flowName,
+		Params:        params,
+		ModelProvider: modelProvider,
 	})
 
 	if err != nil {

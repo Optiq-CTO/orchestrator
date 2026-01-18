@@ -4,7 +4,7 @@
 // - protoc             v3.21.12
 // source: api/proto/external/creator/creator.proto
 
-package creator
+package proto
 
 import (
 	context "context"

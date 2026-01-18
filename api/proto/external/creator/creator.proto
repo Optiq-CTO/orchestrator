@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package creator;
 
-option go_package = "github.com/Optiq-CTO/orchestrator/api/proto/external/creator";
+option go_package = "github.com/Optiq-CTO/creator/api/proto";
 
 service CreatorService {
   rpc GenerateContent(GenerateRequest) returns (GenerateResponse) {}
@@ -13,6 +13,7 @@ message GenerateRequest {
   string topic = 1;
   string platform = 2; // "twitter", "linkedin", "instagram"
   string tone = 3;     // "professional", "viral", "casual"
+  string model_provider = 4;
 }
 
 message RemixRequest {
@@ -20,6 +21,7 @@ message RemixRequest {
   string source_platform = 2;
   string target_platform = 3;
   string tone = 4;
+  string model_provider = 5;
 }
 
 message GenerateResponse {

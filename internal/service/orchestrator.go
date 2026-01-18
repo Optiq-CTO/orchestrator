@@ -36,9 +36,9 @@ func (s *OrchestratorService) RunPipeline(ctx context.Context, req *pb.PipelineR
 
 	switch req.FlowName {
 	case "cross_pollinator":
-		return s.runCrossPollinator(ctx, req.Params)
+		return s.runCrossPollinator(ctx, req.Params, req.ModelProvider)
 	case "facebook_echo":
-		return s.runFacebookEcho(ctx, req.Params)
+		return s.runFacebookEcho(ctx, req.Params, req.ModelProvider)
 	case "trend_jacker":
 		return nil, status.Error(codes.Unimplemented, "trend_jacker not implemented yet")
 	default:
@@ -47,7 +47,7 @@ func (s *OrchestratorService) RunPipeline(ctx context.Context, req *pb.PipelineR
 }
 
 // Flow 1: Cross-Pollinator (Reddit -> LinkedIn/Twitter)
-func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map[string]string) (*pb.PipelineResponse, error) {
+func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map[string]string, modelProvider string) (*pb.PipelineResponse, error) {
 	query := params["query"]
 	targetPlatform := params["target_platform"]
 	if query == "" || targetPlatform == "" {
@@ -57,8 +57,9 @@ func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map
 	// 1. Fetch from Reddit
 	log.Printf("[Orchestrator] Step 1: Fetching from Reddit (query=%s)", query)
 	fetchRes, err := s.fetcher.FetchContent(ctx, &fetcher.FetchRequest{
-		Platform: "reddit",
-		Query:    query,
+		Platform:      "reddit",
+		Query:         query,
+		ModelProvider: modelProvider,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch failed: %w", err)
@@ -88,6 +89,7 @@ func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map
 			SourcePlatform:  "reddit",
 			TargetPlatform:  targetPlatform,
 			Tone:            "professional", // default for LinkedIn
+			ModelProvider:   modelProvider,
 		})
 		if err != nil {
 			log.Printf("Remix failed for item %s: %v", item.SourceId, err)
@@ -119,7 +121,7 @@ func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map
 }
 
 // Flow 2: Facebook Echo Bot (Meta -> Analyze -> Create -> Meta)
-func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[string]string) (*pb.PipelineResponse, error) {
+func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[string]string, modelProvider string) (*pb.PipelineResponse, error) {
 	pageID := params["page_id"]
 	accessToken := params["access_token"]
 	if pageID == "" || accessToken == "" {
@@ -134,6 +136,7 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 		Credentials: map[string]string{
 			"access_token": accessToken,
 		},
+		ModelProvider: modelProvider,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch failed: %w", err)
@@ -172,9 +175,10 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 	// 3. Generate contextual response
 	log.Printf("[Orchestrator] Step 3: Generating response based on analysis and context")
 	generateRes, err := s.creator.GenerateContent(ctx, &creator.GenerateRequest{
-		Topic:    prompt,
-		Platform: "facebook",
-		Tone:     "friendly",
+		Topic:         prompt,
+		Platform:      "facebook",
+		Tone:          "friendly",
+		ModelProvider: modelProvider,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("content generation failed: %w", err)

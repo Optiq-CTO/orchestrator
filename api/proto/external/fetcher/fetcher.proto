@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package fetcher;
 
-option go_package = "github.com/Optiq-CTO/orchestrator/api/proto/external/fetcher";
+option go_package = "github.com/Optiq-CTO/fetcher/api/proto";
 
 import "google/protobuf/timestamp.proto";
 import "api/proto/external/analyzer/analyzer.proto";
@@ -15,6 +15,7 @@ message FetchRequest {
   string platform = 1; // "reddit", "meta"
   string query = 2;    // subreddit or page_id
   map<string, string> credentials = 3; // "access_token", "app_id", etc.
+  string model_provider = 4;
 }
 
 message FetchResponse {

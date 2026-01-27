@@ -16,6 +16,7 @@ message FetchRequest {
   string query = 2;    // subreddit or page_id
   map<string, string> credentials = 3; // "access_token", "app_id", etc.
   string model_provider = 4;
+  int32 limit = 5;
 }
 
 message FetchResponse {

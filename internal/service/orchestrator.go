@@ -39,6 +39,8 @@ func (s *OrchestratorService) RunPipeline(ctx context.Context, req *pb.PipelineR
 		return s.runCrossPollinator(ctx, req.Params, req.ModelProvider)
 	case "facebook_echo":
 		return s.runFacebookEcho(ctx, req.Params, req.ModelProvider)
+	case "twitter_echo":
+		return s.runTwitterEcho(ctx, req.Params, req.ModelProvider)
 	case "trend_jacker":
 		return nil, status.Error(codes.Unimplemented, "trend_jacker not implemented yet")
 	default:
@@ -60,6 +62,7 @@ func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map
 		Platform:      "reddit",
 		Query:         query,
 		ModelProvider: modelProvider,
+		Limit:         3,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch failed: %w", err)
@@ -137,6 +140,7 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 			"access_token": accessToken,
 		},
 		ModelProvider: modelProvider,
+		Limit:         1,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch failed: %w", err)
@@ -214,6 +218,100 @@ func (s *OrchestratorService) runFacebookEcho(ctx context.Context, params map[st
 
 	return &pb.PipelineResponse{
 		PipelineId: "pipeline-fb-echo",
+		Status:     "completed",
+		OutputUrls: []string{pubRes.PostUrl},
+	}, nil
+}
+
+// Flow 3: Twitter Echo Bot
+func (s *OrchestratorService) runTwitterEcho(ctx context.Context, params map[string]string, modelProvider string) (*pb.PipelineResponse, error) {
+	userID := params["twitter_user_id"]
+	bearerToken := params["twitter_bearer_token"]
+	apiKey := params["twitter_api_key"]
+	apiSecret := params["twitter_api_secret"]
+	accessToken := params["twitter_access_token"]
+	accessSecret := params["twitter_access_token_secret"]
+
+	if userID == "" || bearerToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing params: twitter_user_id, twitter_bearer_token")
+	}
+
+	// 1. Fetch from Twitter
+	log.Printf("[Orchestrator] Step 1: Fetching from Twitter user %s", userID)
+	fetchRes, err := s.fetcher.FetchContent(ctx, &fetcher.FetchRequest{
+		Platform: "twitter",
+		Query:    "id:" + userID,
+		Credentials: map[string]string{
+			"twitter_bearer_token": bearerToken,
+		},
+		ModelProvider: modelProvider,
+		Limit:         1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fetch failed: %w", err)
+	}
+
+	if len(fetchRes.Items) == 0 {
+		return &pb.PipelineResponse{
+			PipelineId:   "pipeline-tw-echo",
+			Status:       "completed",
+			ErrorMessage: "No tweets found for the user",
+		}, nil
+	}
+
+	latestTweet := fetchRes.Items[0]
+
+	// 2. Get AI Context
+	log.Printf("[Orchestrator] Step 2: Fetching AI context for twitter user %s", userID)
+	ctxRes, _ := s.aicontext.GetUserContext(ctx, &aicontext.GetUserContextRequest{
+		User: &aicontext.User{Platform: "twitter", UserId: userID},
+	})
+
+	prompt := fmt.Sprintf("Create a short, engaging tweet in response to this: '%s'. Keep it under 280 chars.", latestTweet.ContentText)
+	if ctxRes != nil && ctxRes.Summary != "" {
+		prompt = fmt.Sprintf("Context: %s. %s", ctxRes.Summary, prompt)
+	}
+
+	// 3. Generate
+	log.Printf("[Orchestrator] Step 3: Generating tweet")
+	generateRes, err := s.creator.GenerateContent(ctx, &creator.GenerateRequest{
+		Topic:         prompt,
+		Platform:      "twitter",
+		Tone:          "witty",
+		ModelProvider: modelProvider,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("content generation failed: %w", err)
+	}
+
+	// 4. Publish
+	log.Printf("[Orchestrator] Step 4: Publishing to X")
+	pubRes, err := s.publisher.PublishContent(ctx, &publisher.PublishRequest{
+		Content:  generateRes.Content,
+		Platform: "twitter",
+		Credentials: map[string]string{
+			"twitter_api_key":             apiKey,
+			"twitter_api_secret":          apiSecret,
+			"twitter_access_token":        accessToken,
+			"twitter_access_token_secret": accessSecret,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("publish failed: %w", err)
+	}
+
+	// 5. Update AI Context
+	s.aicontext.UpdateUserContext(ctx, &aicontext.UpdateUserContextRequest{
+		User: &aicontext.User{Platform: "twitter", UserId: userID},
+		NewInteraction: &aicontext.Interaction{
+			PostId:    pubRes.PostId,
+			Content:   generateRes.Content,
+			Direction: "outbound",
+		},
+	})
+
+	return &pb.PipelineResponse{
+		PipelineId: "pipeline-tw-echo",
 		Status:     "completed",
 		OutputUrls: []string{pubRes.PostUrl},
 	}, nil

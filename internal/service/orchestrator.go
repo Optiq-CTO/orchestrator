@@ -104,8 +104,8 @@ func (s *OrchestratorService) runCrossPollinator(ctx context.Context, params map
 		pubRes, err := s.publisher.PublishContent(ctx, &publisher.PublishRequest{
 			Content:  remixRes.Content,
 			Platform: targetPlatform,
-			// For MVP, passing dummy internal credential. In real world, Orchestrator might fetch this from Vault.
-			Credentials: map[string]string{"internal_call": "true"},
+			// Pass all params as credentials. The publisher will pick what it needs.
+			Credentials: params,
 		})
 		if err != nil {
 			log.Printf("Publish failed for item %s: %v", item.SourceId, err)
